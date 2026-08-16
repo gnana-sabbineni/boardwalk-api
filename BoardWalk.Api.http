@@ -1,0 +1,6 @@
+@BoardWalk_LobbyService_HostAddress = http://localhost:5199
+
+GET {{BoardWalk_LobbyService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
