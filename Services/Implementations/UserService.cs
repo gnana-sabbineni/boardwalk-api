@@ -86,5 +86,58 @@ namespace BoardWalk.Api.Services.Implementations
             };
         }
 
+        /// <summary>
+        /// Updates the profile of an existing user. It checks for email uniqueness, validates password change requests, and updates the user's first name, last name, email, and password hash if applicable. Finally, it saves the changes to the repository.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public async Task UpdateProfileAsync(Guid userId, UpdateProfileRequest request)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new InvalidOperationException("User not found.");
+
+            // --- Email uniqueness check (only matters if it's actually changing) ---
+            if (!string.Equals(user.Email, request.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                var existing = await _userRepository.GetByEmailAsync(request.Email);
+                if (existing != null)
+                    throw new InvalidOperationException("That email is already in use.");
+            }
+
+            // --- Password change is optional, but must be requested consistently ---
+            bool wantsPasswordChange = !string.IsNullOrWhiteSpace(request.NewPassword);
+            bool suppliedCurrentPassword = !string.IsNullOrWhiteSpace(request.CurrentPassword);
+
+            if (wantsPasswordChange && !suppliedCurrentPassword)
+                throw new InvalidOperationException("CurrentPassword is required to set a new password.");
+
+            if (suppliedCurrentPassword && !wantsPasswordChange)
+                throw new InvalidOperationException("NewPassword is required when CurrentPassword is provided.");
+
+            if (wantsPasswordChange)
+            {
+                bool isCurrentValid = PasswordHasher.VerifyPassword(request.CurrentPassword!, user.Salt, user.PasswordHash);
+                if (!isCurrentValid)
+                    throw new InvalidOperationException("Current password is incorrect.");
+
+                var newSalt = PasswordHasher.GenerateSalt();
+                user.Salt = newSalt;
+                user.PasswordHash = PasswordHasher.HashPassword(request.NewPassword!, newSalt);
+            }
+
+            // --- Apply name/email changes (always happens) ---
+            user.FirstName = request.FirstName;
+            user.LastName = request.LastName;
+            user.Email = request.Email;
+
+            _userRepository.Update(user);
+            await _unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation("Profile updated for user {UserId} (password changed: {PasswordChanged})", userId, wantsPasswordChange);
+        }
+
     }
 }

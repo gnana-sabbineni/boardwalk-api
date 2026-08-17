@@ -15,8 +15,25 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add services to the container.
+// Add controllers and configure model validation error responses to return a single combined message
 builder.Services.AddControllers();
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        // Collect every validation error message across all invalid fields
+        // into one combined string (e.g. "Email: The Email field is not a valid e-mail address.").
+        var errors = context.ModelState
+            .Where(kvp => kvp.Value?.Errors.Count > 0)
+            .SelectMany(kvp => kvp.Value!.Errors.Select(e => $"{kvp.Key}: {e.ErrorMessage}"))
+            .ToList();
+
+        var message = string.Join(" | ", errors);
+
+        var response = BoardWalk.Api.Services.Models.Responses.ApiResponse<object>.Fail(message, statusCode: 400);
+        return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
+    };
+});
 
 builder.Services.AddCors(options =>
 {
@@ -80,9 +97,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Register Services and Repositories
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<JwtTokenGenerator>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IFriendService , FriendService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 var app = builder.Build();
 

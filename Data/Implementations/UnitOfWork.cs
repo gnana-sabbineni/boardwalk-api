@@ -1,20 +1,20 @@
-﻿using BoardWalk.Api.Data.Repositories;
+﻿using BoardWalk.Api.Data;
+using BoardWalk.Api.Data.Implementations;
+using BoardWalk.Api.Data.Repositories;
 
-namespace BoardWalk.Api.Data.Implementations
+public class UnitOfWork : IUnitOfWork
 {
-        public class UnitOfWork : IUnitOfWork
-        {
-            private readonly AppDbContext _context;
-            private IUserRepository? _users;
+    private readonly AppDbContext _context;
+    private IUserRepository? _users;
+    private IFriendRequestRepository? _friendRequests;
+    private INotificationRepository? _notifications;
 
-            public UnitOfWork(AppDbContext context)
-            {
-                _context = context;
-            }
-            public IUserRepository Users => _users ??= new UserRepository(_context);
+    public UnitOfWork(AppDbContext context) => _context = context;
 
-            public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
+    public IUserRepository Users => _users ??= new UserRepository(_context);
+    public IFriendRequestRepository FriendRequests => _friendRequests ??= new FriendRequestRepository(_context);
+    public INotificationRepository Notifications => _notifications ??= new NotificationRepository(_context);
 
-            public void Dispose() => _context.Dispose();
-        }
+    public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
+    public void Dispose() => _context.Dispose();
 }

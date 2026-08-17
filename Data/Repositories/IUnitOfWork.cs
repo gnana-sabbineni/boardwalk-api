@@ -3,7 +3,8 @@
     public interface IUnitOfWork : IDisposable
     {
         IUserRepository Users { get; }
- 
+        IFriendRequestRepository FriendRequests { get; }
+        INotificationRepository Notifications { get; }
         Task<int> SaveChangesAsync();
     }
 }
