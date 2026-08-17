@@ -5,6 +5,7 @@
         IUserRepository Users { get; }
         IFriendRequestRepository FriendRequests { get; }
         INotificationRepository Notifications { get; }
+        IPasswordResetTokenRepository PasswordResetTokens { get; }
         Task<int> SaveChangesAsync();
     }
 }

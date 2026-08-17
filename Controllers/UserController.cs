@@ -17,22 +17,23 @@ namespace BoardWalk.Api.Controllers
         }
 
         /// <summary>
-        /// Registers a new user account.
+        /// Registers a new user account and immediately issues a JWT bearer token,
+        /// so the caller is logged in without needing a separate login request.
         /// </summary>
         /// <param name="request">First name, last name, email, and password for the new account.</param>
         /// <returns>
-        /// 201 Created with the new user's ID on success.
+        /// 201 Created with the new user's ID and a JWT on success.
         /// 409 Conflict if the email is already registered.
         /// </returns>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterUserRequest request)
         {
-            var newUserId = await _userService.RegisterAsync(request);
+            var result = await _userService.RegisterAsync(request);
 
-            if (newUserId == null)
+            if (result == null)
                 return FailResponse("An account with this email already exists.", statusCode: 409);
 
-            return SuccessResponse(new { userId = newUserId }, "Account created successfully.", statusCode: 201);
+            return SuccessResponse(result, "Account created successfully.", statusCode: 201);
         }
 
         /// <summary>
@@ -92,6 +93,39 @@ namespace BoardWalk.Api.Controllers
             catch (InvalidOperationException ex) when (ex.Message.Contains("already in use"))
             {
                 return FailResponse(ex.Message, statusCode: 409);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return FailResponse(ex.Message, statusCode: 400);
+            }
+        }
+
+        /// <summary>
+        /// Requests a password reset email. Always returns the same success response
+        /// whether or not the email belongs to an existing account, to prevent
+        /// attackers from using this endpoint to discover which emails are registered.
+        /// </summary>
+        /// <param name="request">The account email.</param>
+        /// <returns>200 OK, always — check your email/console log for the reset link in development.</returns>
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            await _userService.ForgotPasswordAsync(request);
+            return SuccessResponse<object>(null, "If an account exists with that email, a reset link has been sent.");
+        }
+
+        /// <summary>
+        /// Resets a user's password using the token emailed by /forgot-password.
+        /// </summary>
+        /// <param name="request">The raw token from the reset link, and the new password.</param>
+        /// <returns>200 OK on success. 400 if the token is invalid, expired, or already used.</returns>
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                await _userService.ResetPasswordAsync(request);
+                return SuccessResponse<object>(null, "Password reset successfully.");
             }
             catch (InvalidOperationException ex)
             {

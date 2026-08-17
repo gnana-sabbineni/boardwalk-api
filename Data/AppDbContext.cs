@@ -10,6 +10,7 @@ namespace BoardWalk.Api.Data
         public DbSet<User> Users { get; set; }
         public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
@@ -49,6 +50,16 @@ namespace BoardWalk.Api.Data
 
                 // Speeds up "get all notifications for this user" — run every notification-bar load.
                 entity.HasIndex(n => n.RecipientUserId);
+            });
+
+            modelBuilder.Entity<PasswordResetToken>(entity =>
+            {
+                entity.HasOne(t => t.User)
+                      .WithMany()
+                      .HasForeignKey(t => t.UserId)
+                      .OnDelete(DeleteBehavior.Cascade); // if a User is ever deleted, their old reset tokens go with them
+
+                entity.HasIndex(t => t.TokenHash); // fast lookup when the user submits their token back
             });
         }
 

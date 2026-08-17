@@ -13,13 +13,18 @@ namespace BoardWalk.Api.Services.Implementations
         private readonly ILogger<UserService> _logger;
         private readonly IUserRepository _userRepository;
         private readonly JwtTokenGenerator _tokenGenerator;
+        private readonly IEmailSender _emailSender;
+        private readonly IConfiguration _config;
 
-        public UserService(IUnitOfWork unitOfWork, ILogger<UserService> logger, JwtTokenGenerator tokenGenerator)
+
+        public UserService(IUnitOfWork unitOfWork, ILogger<UserService> logger, JwtTokenGenerator tokenGenerator , IEmailSender emailSender, IConfiguration config)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _userRepository = unitOfWork.Users;
             _tokenGenerator = tokenGenerator;
+            _emailSender = emailSender;
+            _config = config;
         }
 
 
@@ -29,13 +34,14 @@ namespace BoardWalk.Api.Services.Implementations
         /// <param name="request"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task<Guid?> RegisterAsync(RegisterUserRequest request)
+        public async Task<LoginResponse?> RegisterAsync(RegisterUserRequest request)
         {
             var existingUser = await _userRepository.GetByEmailAsync(request.Email);
             if (existingUser != null)
             {
                 return null;
             }
+
             var salt = PasswordHasher.GenerateSalt();
             var hashedPassword = PasswordHasher.HashPassword(request.Password, salt);
             var newUser = new User
@@ -48,10 +54,23 @@ namespace BoardWalk.Api.Services.Implementations
                 Salt = salt,
                 CreatedAt = DateTime.UtcNow
             };
+
             await _userRepository.AddAsync(newUser);
             await _unitOfWork.SaveChangesAsync();
+
             _logger.LogInformation("New user registered with email: {Email}", request.Email);
-            return newUser.Id;
+
+            return new LoginResponse
+            {
+                Token = _tokenGenerator.GenerateToken(newUser),
+                User = new UserResponse
+                {
+                    Id = newUser.Id,
+                    FirstName = newUser.FirstName,
+                    LastName = newUser.LastName,
+                    Email = newUser.Email
+                }
+            };
         }
 
         /// <summary>
@@ -137,6 +156,71 @@ namespace BoardWalk.Api.Services.Implementations
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Profile updated for user {UserId} (password changed: {PasswordChanged})", userId, wantsPasswordChange);
+        }
+
+        public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            var user = await _userRepository.GetByEmailAsync(request.Email);
+
+            if (user != null)
+            {
+                var rawToken = PasswordResetTokenHelper.GenerateRawToken();
+
+                var resetToken = new PasswordResetToken
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    TokenHash = PasswordResetTokenHelper.Hash(rawToken),
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _unitOfWork.PasswordResetTokens.AddAsync(resetToken);
+                await _unitOfWork.SaveChangesAsync();
+
+                var frontendBaseUrl = _config["Frontend:BaseUrl"]; // e.g. "http://localhost:5173"
+                var resetLink = $"{frontendBaseUrl}/reset-password?token={rawToken}";
+
+                await _emailSender.SendPasswordResetEmailAsync(user.Email, resetLink);
+
+                _logger.LogInformation("Password reset requested for user {UserId}", user.Id);
+            }
+            else
+            {
+                // Deliberately no-op — same response either way, see explanation above.
+                _logger.LogInformation("Password reset requested for unknown email {Email}", request.Email);
+            }
+
+            // No return value either way — the controller sends an identical response
+            // regardless of what happened here.
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            var tokenHash = PasswordResetTokenHelper.Hash(request.Token);
+            var resetToken = await _unitOfWork.PasswordResetTokens.GetByTokenHashAsync(tokenHash);
+
+            if (resetToken == null)
+                throw new InvalidOperationException("Invalid or expired reset link.");
+
+            if (resetToken.UsedAt != null)
+                throw new InvalidOperationException("This reset link has already been used.");
+
+            if (resetToken.ExpiresAt < DateTime.UtcNow)
+                throw new InvalidOperationException("This reset link has expired.");
+
+            var user = resetToken.User;
+            var newSalt = PasswordHasher.GenerateSalt();
+            user.Salt = newSalt;
+            user.PasswordHash = PasswordHasher.HashPassword(request.NewPassword, newSalt);
+            _userRepository.Update(user);
+
+            resetToken.UsedAt = DateTime.UtcNow;
+            _unitOfWork.PasswordResetTokens.Update(resetToken);
+
+            await _unitOfWork.SaveChangesAsync(); // password change + token consumption committed together
+
+            _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
         }
 
     }
