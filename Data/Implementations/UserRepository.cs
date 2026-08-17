@@ -12,5 +12,17 @@ namespace BoardWalk.Api.Data.Implementations
         {
             return await _dbSet.FirstOrDefaultAsync(u => u.Email == email);
         }
+
+        public async Task<List<User>> SearchAsync(string query, Guid excludeUserId)
+        {
+            var lowered = query.ToLower();
+            return await ((IQueryable<User>)_dbSet)
+                .Where(u => u.Id != excludeUserId &&
+                       (u.Email.ToLower().Contains(lowered) ||
+                        u.FirstName.ToLower().Contains(lowered) ||
+                        u.LastName.ToLower().Contains(lowered)))
+                .Take(20) 
+                .ToListAsync();
+        }
     }
 }

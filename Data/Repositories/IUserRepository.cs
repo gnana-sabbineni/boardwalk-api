@@ -5,5 +5,6 @@ namespace BoardWalk.Api.Data.Repositories
     public interface IUserRepository : IRepository<User>
     {
         Task<User?> GetByEmailAsync(string email);
+        Task<List<User>> SearchAsync(string query, Guid excludeUserId);
     }
 }
