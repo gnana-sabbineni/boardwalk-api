@@ -14,6 +14,5 @@ namespace BoardWalk.Api.Services.Interfaces
         Task RemoveDisconnectedMemberAsync(Guid lobbyId, Guid userId);
         Task StartGameAsync(Guid hostUserId);
         Task<LobbyResponse?> GetCurrentLobbyAsync(Guid userId);
-        Task RemoveMemberInternalAsync(Lobby lobby, Guid userId);
     }
 }
