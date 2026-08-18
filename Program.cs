@@ -1,6 +1,7 @@
 using BoardWalk.Api.Data;
 using BoardWalk.Api.Data.Implementations;
 using BoardWalk.Api.Data.Repositories;
+using BoardWalk.Api.Hubs;
 using BoardWalk.Api.Services.Common;
 using BoardWalk.Api.Services.Implementations;
 using BoardWalk.Api.Services.Interfaces;
@@ -9,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Resend;
+using StackExchange.Redis;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -73,9 +75,28 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true, 
         ClockSkew = TimeSpan.Zero
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"]!));
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -112,8 +133,13 @@ builder.Services.Configure<ResendClientOptions>(o =>
 });
 builder.Services.AddTransient<IResend, ResendClient>();
 builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
+builder.Services.AddSingleton<IPresenceService, RedisPresenceService>();
+builder.Services.AddScoped<ILobbyRealtimeNotifier, LobbyRealtimeNotifier>();
+builder.Services.AddScoped<ILobbyService, LobbyService>();
 
 var app = builder.Build();
+
+LobbyGracePeriodService.Configure(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -129,7 +155,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.MapHub<LobbyHub>("/hubs/lobby");
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok" }));
 
 app.Run();

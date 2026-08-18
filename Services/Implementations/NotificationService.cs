@@ -9,12 +9,15 @@ namespace BoardWalk.Api.Services.Implementations
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IFriendService _friendService;
+        private readonly ILobbyService _lobbyService;
+
         private readonly ILogger<NotificationService> _logger;
 
-        public NotificationService(IUnitOfWork unitOfWork, IFriendService friendService, ILogger<NotificationService> logger)
+        public NotificationService(IUnitOfWork unitOfWork, IFriendService friendService, ILobbyService lobbyService, ILogger<NotificationService> logger)
         {
             _unitOfWork = unitOfWork;
             _friendService = friendService;
+            _lobbyService = lobbyService;
             _logger = logger;
         }
 
@@ -43,9 +46,8 @@ namespace BoardWalk.Api.Services.Implementations
                     break;
 
                 case NotificationType.LobbyInvite:
-                    // Wire up once lobby invites exist (Phase 5/6):
-                    // await _lobbyService.RespondToInviteAsync(userId, notification.ReferenceId, accept);
-                    throw new NotSupportedException("Lobby invites are not implemented yet.");
+                    await _lobbyService.RespondToInviteAsync(userId, notification.ReferenceId, accept);
+                    break;
 
                 default:
                     throw new NotSupportedException($"Unknown notification type: {notification.Type}");
