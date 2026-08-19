@@ -1,5 +1,4 @@
-﻿using BoardWalk.Api.Data.Models;
-using BoardWalk.Api.Services.Models.Requests;
+﻿using BoardWalk.Api.Services.Models.Requests;
 using BoardWalk.Api.Services.Models.Responses;
 
 namespace BoardWalk.Api.Services.Interfaces
@@ -14,5 +13,6 @@ namespace BoardWalk.Api.Services.Interfaces
         Task RemoveDisconnectedMemberAsync(Guid lobbyId, Guid userId);
         Task StartGameAsync(Guid hostUserId);
         Task<LobbyResponse?> GetCurrentLobbyAsync(Guid userId);
+        Task CloseLobbyAsync(Guid hostUserId);
     }
 }

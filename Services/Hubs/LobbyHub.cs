@@ -12,12 +12,14 @@ namespace BoardWalk.Api.Hubs
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPresenceService _presenceService;
+        private readonly IUserConnectionTracker _connectionTracker;
         private readonly ILogger<LobbyHub> _logger;
 
-        public LobbyHub(IUnitOfWork unitOfWork, IPresenceService presenceService, ILogger<LobbyHub> logger)
+        public LobbyHub(IUnitOfWork unitOfWork, IPresenceService presenceService, IUserConnectionTracker connectionTracker, ILogger<LobbyHub> logger)
         {
             _unitOfWork = unitOfWork;
             _presenceService = presenceService;
+            _connectionTracker = connectionTracker;
             _logger = logger;
         }
 
@@ -28,10 +30,8 @@ namespace BoardWalk.Api.Hubs
         {
             var userId = CurrentUserId;
 
-            // Cancel any pending grace-period timer FIRST — this user just reconnected,
-            // so whatever kick-countdown might be running for them needs to stop immediately,
-            // before anything else runs.
             LobbyGracePeriodService.CancelGracePeriod(userId);
+            _connectionTracker.AddConnection(userId, Context.ConnectionId); // NEW
 
             await _presenceService.MarkOnlineAsync(userId);
 
@@ -39,8 +39,7 @@ namespace BoardWalk.Api.Hubs
             if (user?.CurrentLobbyId != null)
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(user.CurrentLobbyId.Value));
-                await Clients.OthersInGroup(GroupName(user.CurrentLobbyId.Value))
-                    .SendAsync("MemberOnline", userId);
+                await Clients.OthersInGroup(GroupName(user.CurrentLobbyId.Value)).SendAsync("MemberOnline", userId);
             }
 
             _logger.LogInformation("SignalR connected: {UserId} ({ConnectionId})", userId, Context.ConnectionId);
@@ -50,6 +49,7 @@ namespace BoardWalk.Api.Hubs
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var userId = CurrentUserId;
+            _connectionTracker.RemoveConnection(userId, Context.ConnectionId);
             var remainingConnections = await _presenceService.MarkOfflineAsync(userId);
 
             if (remainingConnections == 0)

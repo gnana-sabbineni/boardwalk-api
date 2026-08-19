@@ -11,7 +11,7 @@ namespace BoardWalk.Api.Services.Implementations
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPresenceService _presenceService;
-        private readonly ILobbyRealtimeNotifier _realtimeNotifier; // wraps IHubContext, see §8
+        private readonly ILobbyRealtimeNotifier _realtimeNotifier;
         private readonly ILogger<LobbyService> _logger;
 
         public LobbyService(
@@ -60,6 +60,11 @@ namespace BoardWalk.Api.Services.Implementations
 
             await SaveWithConcurrencyRetryAsync();
 
+            // Attach the creator's already-open SignalR connection(s) to the new lobby's
+            // group immediately — without this, they won't receive/send presence updates
+            // until their next page refresh opens a fresh connection.
+            await _realtimeNotifier.AddUserToLobbyGroupAsync(lobby.Id, userId);
+
             _logger.LogInformation("Lobby {LobbyId} created by {UserId}", lobby.Id, userId);
 
             var fullLobby = await _unitOfWork.Lobbies.GetWithMembersAsync(lobby.Id);
@@ -67,6 +72,8 @@ namespace BoardWalk.Api.Services.Implementations
         }
 
         /// <summary>Host invites another user to the lobby.</summary>
+        /// <exception cref="UnauthorizedAccessException">Caller is not the host.</exception>
+        /// <exception cref="InvalidOperationException">Lobby not open/full, target already a member, or already invited.</exception>
         public async Task SendInviteAsync(Guid hostUserId, Guid lobbyId, InviteToLobbyRequest request)
         {
             var lobby = await _unitOfWork.Lobbies.GetWithMembersAsync(lobbyId)
@@ -139,10 +146,7 @@ namespace BoardWalk.Api.Services.Implementations
             if (!accept)
             {
                 _unitOfWork.LobbyInvites.Delete(invite);
-
-                // NEW — reflect the decline on the notification, same as friend requests.
                 await UpdateLobbyInviteNotificationAsync(invite, userId, accept: false);
-
                 await _unitOfWork.SaveChangesAsync();
                 return;
             }
@@ -180,47 +184,24 @@ namespace BoardWalk.Api.Services.Implementations
             invite.RespondedAt = DateTime.UtcNow;
             _unitOfWork.LobbyInvites.Update(invite);
 
-            // NEW — reflect the acceptance on the notification, same as friend requests.
             await UpdateLobbyInviteNotificationAsync(invite, userId, accept: true);
 
             await SaveWithConcurrencyRetryAsync();
 
+            // Attach the new member's already-open connection(s) to the group BEFORE
+            // broadcasting, so they actually receive their own "joined" confirmation
+            // instead of only hearing about events from this point forward.
+            await _realtimeNotifier.AddUserToLobbyGroupAsync(lobby.Id, userId);
             await _realtimeNotifier.NotifyMemberJoinedAsync(lobby.Id, userId);
 
             _logger.LogInformation("User {UserId} joined lobby {LobbyId} via invite", userId, lobby.Id);
         }
 
         /// <summary>
-        /// Finds the Notification created when this lobby invite was sent, and updates its
-        /// Outcome/IsRead/Message to reflect the response — mirrors FriendService's equivalent
-        /// block exactly, so both notification types stay consistent.
+        /// Removes the current user from their lobby. If they were host, transfers host to
+        /// the earliest-joined remaining member. If they were the last member, closes the lobby.
         /// </summary>
-        private async Task UpdateLobbyInviteNotificationAsync(LobbyInvite invite, Guid userId, bool accept)
-        {
-            var notification = await _unitOfWork.Notifications.FindAsync(n =>
-                n.Type == NotificationType.LobbyInvite &&
-                n.ReferenceId == invite.Id &&
-                n.RecipientUserId == userId);
-
-            if (notification != null)
-            {
-                notification.Outcome = accept ? NotificationOutcome.Accepted : NotificationOutcome.Declined;
-                notification.IsRead = true;
-                notification.LastModifiedAt = DateTime.UtcNow;
-                notification.Message = accept
-                    ? $"You joined {invite.Inviter.FirstName}'s Monopoly game"
-                    : $"You declined {invite.Inviter.FirstName}'s Monopoly invite";
-                _unitOfWork.Notifications.Update(notification);
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "No matching notification found for LobbyInvite {InviteId} and recipient {UserId}",
-                    invite.Id, userId);
-            }
-        }
-
-        /// <summary>Removes the current user from their lobby. Transfers host or closes the lobby as needed.</summary>
+        /// <exception cref="InvalidOperationException">Not in a lobby, or lobby is InProgress.</exception>
         public async Task LeaveLobbyAsync(Guid userId)
         {
             var user = await _unitOfWork.Users.GetByIdAsync(userId)
@@ -237,10 +218,13 @@ namespace BoardWalk.Api.Services.Implementations
 
             await RemoveMemberInternalAsync(lobby, userId);
 
+            await _realtimeNotifier.RemoveUserFromLobbyGroupAsync(lobby.Id, userId);
             await _realtimeNotifier.NotifyMemberLeftAsync(lobby.Id, userId);
         }
 
         /// <summary>Host removes another member from the lobby.</summary>
+        /// <exception cref="UnauthorizedAccessException">Caller is not the host.</exception>
+        /// <exception cref="InvalidOperationException">Not in a lobby, target not a member, self-kick, or InProgress.</exception>
         public async Task KickMemberAsync(Guid hostUserId, Guid targetUserId)
         {
             if (hostUserId == targetUserId)
@@ -266,10 +250,63 @@ namespace BoardWalk.Api.Services.Implementations
 
             await RemoveMemberInternalAsync(lobby, targetUserId);
 
+            await _realtimeNotifier.RemoveUserFromLobbyGroupAsync(lobby.Id, targetUserId);
             await _realtimeNotifier.NotifyMemberKickedAsync(lobby.Id, targetUserId);
         }
 
-        /// <summary>Called by the grace-period expiry path after presence confirms the user is still offline.</summary>
+        /// <summary>
+        /// Host-only. Ends the lobby immediately for all members — unlike Leave (which
+        /// transfers host to the next member), this removes everyone and closes the lobby.
+        /// </summary>
+        /// <exception cref="UnauthorizedAccessException">Caller is not the host.</exception>
+        /// <exception cref="InvalidOperationException">Not in a lobby, lobby not found, or InProgress.</exception>
+        public async Task CloseLobbyAsync(Guid hostUserId)
+        {
+            var host = await _unitOfWork.Users.GetByIdAsync(hostUserId)
+                ?? throw new InvalidOperationException("User not found.");
+
+            if (host.CurrentLobbyId == null)
+                throw new InvalidOperationException("You are not in a lobby.");
+
+            var lobby = await _unitOfWork.Lobbies.GetWithMembersAsync(host.CurrentLobbyId.Value)
+                ?? throw new InvalidOperationException("Lobby not found.");
+
+            if (lobby.HostUserId != hostUserId)
+                throw new UnauthorizedAccessException("Only the host can close the lobby.");
+
+            if (lobby.Status == LobbyStatus.InProgress)
+                throw new InvalidOperationException("Cannot close a lobby once the game has started.");
+
+            var memberIds = lobby.Members.Select(m => m.UserId).ToList();
+
+            foreach (var member in lobby.Members.ToList())
+            {
+                _unitOfWork.LobbyMembers.Delete(member);
+                var user = await _unitOfWork.Users.GetByIdAsync(member.UserId);
+                user!.CurrentLobbyId = null;
+                _unitOfWork.Users.Update(user);
+            }
+
+            lobby.Status = LobbyStatus.Closed;
+            lobby.ClosedAt = DateTime.UtcNow;
+            _unitOfWork.Lobbies.Update(lobby);
+
+            await SaveWithConcurrencyRetryAsync();
+
+            await _realtimeNotifier.NotifyLobbyClosedAsync(lobby.Id);
+            foreach (var memberId in memberIds)
+            {
+                await _realtimeNotifier.RemoveUserFromLobbyGroupAsync(lobby.Id, memberId);
+            }
+
+            _logger.LogInformation("Lobby {LobbyId} closed by host {HostUserId}", lobby.Id, hostUserId);
+        }
+
+        /// <summary>
+        /// Called by the grace-period expiry path (LobbyGracePeriodService) after presence
+        /// atomically confirms the user is still offline. No-ops if the lobby is no longer
+        /// Open or the user is already gone — protects against acting on stale state.
+        /// </summary>
         public async Task RemoveDisconnectedMemberAsync(Guid lobbyId, Guid userId)
         {
             var lobby = await _unitOfWork.Lobbies.GetWithMembersAsync(lobbyId);
@@ -277,9 +314,14 @@ namespace BoardWalk.Api.Services.Implementations
             if (!lobby.Members.Any(m => m.UserId == userId)) return;
 
             await RemoveMemberInternalAsync(lobby, userId);
+
+            await _realtimeNotifier.RemoveUserFromLobbyGroupAsync(lobby.Id, userId);
             await _realtimeNotifier.NotifyMemberRemovedForDisconnectAsync(lobby.Id, userId);
         }
 
+        /// <summary>Host-only. Starts the game once at least 2 members are present and all are online.</summary>
+        /// <exception cref="UnauthorizedAccessException">Caller is not the host.</exception>
+        /// <exception cref="InvalidOperationException">Not in a lobby, lobby not Open, &lt;2 members, or a member is offline.</exception>
         public async Task StartGameAsync(Guid hostUserId)
         {
             var host = await _unitOfWork.Users.GetByIdAsync(hostUserId)
@@ -316,6 +358,7 @@ namespace BoardWalk.Api.Services.Implementations
             _logger.LogInformation("Lobby {LobbyId} started by host {UserId}", lobby.Id, hostUserId);
         }
 
+        /// <summary>Returns the current user's active (non-Closed) lobby, or null if they're not in one.</summary>
         public async Task<LobbyResponse?> GetCurrentLobbyAsync(Guid userId)
         {
             var lobby = await _unitOfWork.Lobbies.GetCurrentLobbyForUserAsync(userId);
@@ -352,9 +395,40 @@ namespace BoardWalk.Api.Services.Implementations
         }
 
         /// <summary>
-        /// Saves changes, retrying once on a concurrency conflict (DbUpdateConcurrencyException) —
-        /// this is what actually enforces the RowVersion protection on User.CurrentLobbyId (INV5).
-        /// A caught conflict here means another request modified the same User row first.
+        /// Finds the Notification created when this lobby invite was sent, and updates its
+        /// Outcome/IsRead/Message to reflect the response — mirrors FriendService's equivalent
+        /// block, so both notification types stay consistent.
+        /// </summary>
+        private async Task UpdateLobbyInviteNotificationAsync(LobbyInvite invite, Guid userId, bool accept)
+        {
+            var notification = await _unitOfWork.Notifications.FindAsync(n =>
+                n.Type == NotificationType.LobbyInvite &&
+                n.ReferenceId == invite.Id &&
+                n.RecipientUserId == userId);
+
+            if (notification != null)
+            {
+                notification.Outcome = accept ? NotificationOutcome.Accepted : NotificationOutcome.Declined;
+                notification.IsRead = true;
+                notification.LastModifiedAt = DateTime.UtcNow;
+                notification.Message = accept
+                    ? $"You joined {invite.Inviter.FirstName}'s Monopoly game"
+                    : $"You declined {invite.Inviter.FirstName}'s Monopoly invite";
+                _unitOfWork.Notifications.Update(notification);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "No matching notification found for LobbyInvite {InviteId} and recipient {UserId}",
+                    invite.Id, userId);
+            }
+        }
+
+        /// <summary>
+        /// Saves changes, translating a concurrency conflict (DbUpdateConcurrencyException) —
+        /// raised when User.RowVersion no longer matches what was read — into a friendly
+        /// InvalidOperationException. This is what enforces the "one active lobby per user"
+        /// invariant (INV5) against concurrent requests racing on the same User row.
         /// </summary>
         private async Task SaveWithConcurrencyRetryAsync()
         {

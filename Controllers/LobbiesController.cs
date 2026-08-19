@@ -90,5 +90,19 @@ namespace BoardWalk.Api.Controllers
             catch (UnauthorizedAccessException ex) { return FailResponse(ex.Message, statusCode: 403); }
             catch (InvalidOperationException ex) { return FailResponse(ex.Message, statusCode: 400); }
         }
+
+        /// <summary>Host-only. Closes the lobby entirely, removing all members. Different from
+        /// Leave, which transfers host to the next member instead of ending the lobby.</summary>
+        [HttpPost("close")]
+        public async Task<IActionResult> Close()
+        {
+            try
+            {
+                await _lobbyService.CloseLobbyAsync(CurrentUserId);
+                return SuccessResponse<object>(null, "Lobby closed.");
+            }
+            catch (UnauthorizedAccessException ex) { return FailResponse(ex.Message, statusCode: 403); }
+            catch (InvalidOperationException ex) { return FailResponse(ex.Message, statusCode: 400); }
+        }
     }
 }
