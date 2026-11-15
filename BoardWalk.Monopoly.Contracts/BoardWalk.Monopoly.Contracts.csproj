@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure data shapes shared by everything that talks about a Monopoly game: the engine, the API host and
+    the bot. No packages and no logic, so any project can reference it without dragging in EF or ASP.NET.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
