@@ -52,6 +52,96 @@ namespace BoardWalk.Api.Migrations
                     b.ToTable("FriendRequests");
                 });
 
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.Lobby", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HostUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MaxPlayers")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostUserId");
+
+                    b.ToTable("Lobbies");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.LobbyInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InviteeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InviterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LobbyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InviteeUserId");
+
+                    b.HasIndex("InviterUserId");
+
+                    b.HasIndex("LobbyId");
+
+                    b.ToTable("LobbyInvites");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.LobbyMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LobbyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LobbyId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("LobbyMembers");
+                });
+
             modelBuilder.Entity("BoardWalk.Api.Data.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -135,6 +225,9 @@ namespace BoardWalk.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CurrentLobbyId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -154,11 +247,19 @@ namespace BoardWalk.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
                     b.Property<string>("Salt")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CurrentLobbyId");
 
                     b.HasIndex("Email")
                         .IsUnique();
@@ -183,6 +284,63 @@ namespace BoardWalk.Api.Migrations
                     b.Navigation("Addressee");
 
                     b.Navigation("Requester");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.Lobby", b =>
+                {
+                    b.HasOne("BoardWalk.Api.Data.Models.User", "Host")
+                        .WithMany()
+                        .HasForeignKey("HostUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Host");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.LobbyInvite", b =>
+                {
+                    b.HasOne("BoardWalk.Api.Data.Models.User", "Invitee")
+                        .WithMany()
+                        .HasForeignKey("InviteeUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BoardWalk.Api.Data.Models.User", "Inviter")
+                        .WithMany()
+                        .HasForeignKey("InviterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BoardWalk.Api.Data.Models.Lobby", "Lobby")
+                        .WithMany()
+                        .HasForeignKey("LobbyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invitee");
+
+                    b.Navigation("Inviter");
+
+                    b.Navigation("Lobby");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.LobbyMember", b =>
+                {
+                    b.HasOne("BoardWalk.Api.Data.Models.Lobby", "Lobby")
+                        .WithMany("Members")
+                        .HasForeignKey("LobbyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BoardWalk.Api.Data.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Lobby");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("BoardWalk.Api.Data.Models.Notification", b =>
@@ -213,6 +371,21 @@ namespace BoardWalk.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.User", b =>
+                {
+                    b.HasOne("BoardWalk.Api.Data.Models.Lobby", "CurrentLobby")
+                        .WithMany()
+                        .HasForeignKey("CurrentLobbyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CurrentLobby");
+                });
+
+            modelBuilder.Entity("BoardWalk.Api.Data.Models.Lobby", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }
