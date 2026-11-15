@@ -78,7 +78,7 @@ namespace BoardWalk.Api.Controllers
             catch (InvalidOperationException ex) { return FailResponse(ex.Message, statusCode: 400); }
         }
 
-        /// <summary>Host starts the game, handing off to the game engine (Phase 3).</summary>
+        /// <summary>Host starts the game: creates the Game and notifies members.</summary>
         [HttpPost("start")]
         public async Task<IActionResult> Start()
         {

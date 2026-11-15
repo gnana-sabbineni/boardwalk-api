@@ -1,4 +1,4 @@
-﻿using BoardWalk.Api.Data.Models;
+using BoardWalk.Api.Data.Models;
 
 namespace BoardWalk.Api.Data.Repositories
 {
@@ -11,6 +11,10 @@ namespace BoardWalk.Api.Data.Repositories
         ILobbyRepository Lobbies { get; }
         ILobbyInviteRepository LobbyInvites { get; }
         IRepository<LobbyMember> LobbyMembers { get; }
+        IGameRepository Games { get; }
+        IRepository<GamePlayer> GamePlayers { get; }
+        IRepository<GameProperty> GameProperties { get; }
+        IRepository<GameEvent> GameEvents { get; }
         Task<int> SaveChangesAsync();
     }
 }

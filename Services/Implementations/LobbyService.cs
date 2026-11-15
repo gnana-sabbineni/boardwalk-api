@@ -1,4 +1,4 @@
-﻿using BoardWalk.Api.Data.Models;
+using BoardWalk.Api.Data.Models;
 using BoardWalk.Api.Data.Repositories;
 using BoardWalk.Api.Services.Interfaces;
 using BoardWalk.Api.Services.Models.Requests;
@@ -12,17 +12,20 @@ namespace BoardWalk.Api.Services.Implementations
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPresenceService _presenceService;
         private readonly ILobbyRealtimeNotifier _realtimeNotifier;
+        private readonly IGameService _gameService;
         private readonly ILogger<LobbyService> _logger;
 
         public LobbyService(
             IUnitOfWork unitOfWork,
             IPresenceService presenceService,
             ILobbyRealtimeNotifier realtimeNotifier,
+            IGameService gameService,
             ILogger<LobbyService> logger)
         {
             _unitOfWork = unitOfWork;
             _presenceService = presenceService;
             _realtimeNotifier = realtimeNotifier;
+            _gameService = gameService;
             _logger = logger;
         }
 
@@ -319,7 +322,7 @@ namespace BoardWalk.Api.Services.Implementations
             await _realtimeNotifier.NotifyMemberRemovedForDisconnectAsync(lobby.Id, userId);
         }
 
-        /// <summary>Host-only. Starts the game once at least 2 members are present and all are online.</summary>
+        /// <summary>Host-only. Starts the game (creating the Game record) once at least 2 members are present and all are online.</summary>
         /// <exception cref="UnauthorizedAccessException">Caller is not the host.</exception>
         /// <exception cref="InvalidOperationException">Not in a lobby, lobby not Open, &lt;2 members, or a member is offline.</exception>
         public async Task StartGameAsync(Guid hostUserId)
@@ -351,6 +354,10 @@ namespace BoardWalk.Api.Services.Implementations
             lobby.Status = LobbyStatus.InProgress;
             lobby.StartedAt = DateTime.UtcNow;
             _unitOfWork.Lobbies.Update(lobby);
+
+            // Create the Game (players, turn order, property rows) in the same save as the status change,
+            // so a lobby can never be InProgress without a game behind it.
+            await _gameService.CreateGameFromLobbyAsync(lobby);
             await _unitOfWork.SaveChangesAsync();
 
             await _realtimeNotifier.NotifyGameStartingAsync(lobby.Id);

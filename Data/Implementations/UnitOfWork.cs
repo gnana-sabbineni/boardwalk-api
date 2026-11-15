@@ -1,4 +1,4 @@
-﻿using BoardWalk.Api.Data;
+using BoardWalk.Api.Data;
 using BoardWalk.Api.Data.Implementations;
 using BoardWalk.Api.Data.Models;
 using BoardWalk.Api.Data.Repositories;
@@ -13,6 +13,10 @@ public class UnitOfWork : IUnitOfWork
     private ILobbyRepository? _lobbies;
     private ILobbyInviteRepository? _lobbyInvites;
     private IRepository<LobbyMember>? _lobbyMembers;
+    private IGameRepository? _games;
+    private IRepository<GamePlayer>? _gamePlayers;
+    private IRepository<GameProperty>? _gameProperties;
+    private IRepository<GameEvent>? _gameEvents;
 
     public UnitOfWork(AppDbContext context) => _context = context;
 
@@ -23,6 +27,11 @@ public class UnitOfWork : IUnitOfWork
     public ILobbyRepository Lobbies => _lobbies ??= new LobbyRepository(_context);
     public ILobbyInviteRepository LobbyInvites => _lobbyInvites ??= new LobbyInviteRepository(_context);
     public IRepository<LobbyMember> LobbyMembers => _lobbyMembers ??= new Repository<LobbyMember>(_context);
+
+    public IGameRepository Games => _games ??= new GameRepository(_context);
+    public IRepository<GamePlayer> GamePlayers => _gamePlayers ??= new Repository<GamePlayer>(_context);
+    public IRepository<GameProperty> GameProperties => _gameProperties ??= new Repository<GameProperty>(_context);
+    public IRepository<GameEvent> GameEvents => _gameEvents ??= new Repository<GameEvent>(_context);
 
     public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
     public void Dispose() => _context.Dispose();

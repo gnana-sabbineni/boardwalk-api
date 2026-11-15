@@ -137,6 +137,8 @@ builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddSingleton<IPresenceService, RedisPresenceService>();
 builder.Services.AddScoped<ILobbyRealtimeNotifier, LobbyRealtimeNotifier>();
 builder.Services.AddScoped<ILobbyService, LobbyService>();
+builder.Services.AddScoped<IGameRealtimeNotifier, GameRealtimeNotifier>();
+builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddSingleton<IUserConnectionTracker, UserConnectionTracker>();
 
 var app = builder.Build();

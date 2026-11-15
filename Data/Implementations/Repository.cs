@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using BoardWalk.Api.Data.Repositories;
 
@@ -23,6 +23,8 @@ namespace BoardWalk.Api.Data.Implementations
             await _dbSet.FirstOrDefaultAsync(predicate);
 
         public async Task AddAsync(T entity) => await _dbSet.AddAsync(entity);
+
+        public void Add(T entity) => _dbSet.Add(entity);
 
         public void Update(T entity) => _dbSet.Update(entity);
 

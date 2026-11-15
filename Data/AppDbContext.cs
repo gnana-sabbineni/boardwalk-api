@@ -1,4 +1,4 @@
-﻿using BoardWalk.Api.Data.Models;
+using BoardWalk.Api.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace BoardWalk.Api.Data
@@ -11,6 +11,10 @@ namespace BoardWalk.Api.Data
         public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+        public DbSet<Game> Games => Set<Game>();
+        public DbSet<GamePlayer> GamePlayers => Set<GamePlayer>();
+        public DbSet<GameProperty> GameProperties => Set<GameProperty>();
+        public DbSet<GameEvent> GameEvents => Set<GameEvent>();
         public DbSet<Lobby> Lobbies => Set<Lobby>();
         public DbSet<LobbyMember> LobbyMembers => Set<LobbyMember>();
         public DbSet<LobbyInvite> LobbyInvites => Set<LobbyInvite>();
@@ -111,6 +115,56 @@ namespace BoardWalk.Api.Data
                       .WithMany()
                       .HasForeignKey(i => i.InviteeUserId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Game>(entity =>
+            {
+                entity.HasOne(g => g.Lobby)
+                      .WithMany()
+                      .HasForeignKey(g => g.LobbyId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(g => g.ChanceDeckOrder).HasMaxLength(200);
+                entity.HasIndex(g => g.LobbyId);
+            });
+
+            modelBuilder.Entity<GamePlayer>(entity =>
+            {
+                entity.HasOne(p => p.Game)
+                      .WithMany(g => g.Players)
+                      .HasForeignKey(p => p.GameId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.User)
+                      .WithMany()
+                      .HasForeignKey(p => p.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                // A user appears at most once per game.
+                entity.HasIndex(p => new { p.GameId, p.UserId }).IsUnique();
+                entity.HasIndex(p => p.UserId);
+            });
+
+            modelBuilder.Entity<GameProperty>(entity =>
+            {
+                entity.HasOne(p => p.Game)
+                      .WithMany(g => g.Properties)
+                      .HasForeignKey(p => p.GameId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // One row per tile per game.
+                entity.HasIndex(p => new { p.GameId, p.TileIndex }).IsUnique();
+            });
+
+            modelBuilder.Entity<GameEvent>(entity =>
+            {
+                entity.HasOne(e => e.Game)
+                      .WithMany(g => g.Events)
+                      .HasForeignKey(e => e.GameId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.Message).HasMaxLength(500);
+                entity.HasIndex(e => new { e.GameId, e.Sequence });
             });
         }
 
