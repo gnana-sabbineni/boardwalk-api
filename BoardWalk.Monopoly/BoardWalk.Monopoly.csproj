@@ -14,7 +14,8 @@
   <ItemGroup>
     <!-- Gives us logging, dependency injection, options and BackgroundService without extra packages. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <!-- Relational is where ToTable, HasIndex-on-tables and AsSplitQuery live; it also pulls in the core package. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup>
