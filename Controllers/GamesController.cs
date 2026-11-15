@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BoardWalk.Api.Services.Interfaces;
+using BoardWalk.Api.Services.Models.Requests;
 
 namespace BoardWalk.Api.Controllers
 {
@@ -69,6 +70,58 @@ namespace BoardWalk.Api.Controllers
         [HttpPost("bankruptcy")]
         public Task<IActionResult> DeclareBankruptcy() => Run(async () =>
             SuccessResponse(await _gameService.DeclareBankruptcyAsync(CurrentUserId), "Bankruptcy declared."));
+
+        // ----- Player actions -----
+
+        /// <summary>Owned properties of any player in the game, grouped by colour (for the properties panel).</summary>
+        [HttpGet("players/{userId}/properties")]
+        public Task<IActionResult> GetPlayerProperties(Guid userId) => Run(async () =>
+            SuccessResponse(await _gameService.GetPlayerPropertiesAsync(CurrentUserId, userId), "Properties retrieved."));
+
+        /// <summary>Builds a house (or hotel) on a street. Own turn only; needs the full colour group.</summary>
+        [HttpPost("properties/{tileIndex}/build")]
+        public Task<IActionResult> Build(int tileIndex) => Run(async () =>
+            SuccessResponse(await _gameService.BuildAsync(CurrentUserId, tileIndex), "Built."));
+
+        /// <summary>Sells one building back to the bank for half its cost.</summary>
+        [HttpPost("properties/{tileIndex}/sell-building")]
+        public Task<IActionResult> SellBuilding(int tileIndex) => Run(async () =>
+            SuccessResponse(await _gameService.SellBuildingAsync(CurrentUserId, tileIndex), "Building sold."));
+
+        /// <summary>Mortgages a property for half its price.</summary>
+        [HttpPost("properties/{tileIndex}/mortgage")]
+        public Task<IActionResult> Mortgage(int tileIndex) => Run(async () =>
+            SuccessResponse(await _gameService.MortgageAsync(CurrentUserId, tileIndex), "Property mortgaged."));
+
+        /// <summary>Lifts a mortgage (half the price plus 10% interest).</summary>
+        [HttpPost("properties/{tileIndex}/unmortgage")]
+        public Task<IActionResult> Unmortgage(int tileIndex) => Run(async () =>
+            SuccessResponse(await _gameService.UnmortgageAsync(CurrentUserId, tileIndex), "Mortgage lifted."));
+
+        /// <summary>Pending trades the caller proposed or received.</summary>
+        [HttpGet("trades")]
+        public Task<IActionResult> GetTrades() => Run(async () =>
+            SuccessResponse(await _gameService.GetTradesAsync(CurrentUserId), "Trades retrieved."));
+
+        /// <summary>Proposes a trade (properties + cash each way) to another player. Any player, any time.</summary>
+        [HttpPost("trades")]
+        public Task<IActionResult> ProposeTrade([FromBody] ProposeTradeRequest request) => Run(async () =>
+            SuccessResponse(await _gameService.ProposeTradeAsync(CurrentUserId, request), "Trade proposed.", statusCode: 201));
+
+        /// <summary>Recipient accepts: properties and cash swap immediately.</summary>
+        [HttpPost("trades/{tradeId}/accept")]
+        public Task<IActionResult> AcceptTrade(Guid tradeId) => Run(async () =>
+            SuccessResponse(await _gameService.AcceptTradeAsync(CurrentUserId, tradeId), "Trade accepted."));
+
+        /// <summary>Recipient declines.</summary>
+        [HttpPost("trades/{tradeId}/decline")]
+        public Task<IActionResult> DeclineTrade(Guid tradeId) => Run(async () =>
+            SuccessResponse(await _gameService.DeclineTradeAsync(CurrentUserId, tradeId), "Trade declined."));
+
+        /// <summary>Proposer withdraws a pending trade.</summary>
+        [HttpPost("trades/{tradeId}/cancel")]
+        public Task<IActionResult> CancelTrade(Guid tradeId) => Run(async () =>
+            SuccessResponse(await _gameService.CancelTradeAsync(CurrentUserId, tradeId), "Trade cancelled."));
 
         private async Task<IActionResult> Run(Func<Task<IActionResult>> action)
         {

@@ -12,6 +12,8 @@ namespace BoardWalk.Api.Services.Interfaces
         Task NotifyGameUpdatedAsync(Guid lobbyId);
         Task NotifyDiceRolledAsync(Guid lobbyId, Guid userId, int die1, int die2);
         Task NotifyCardDrawnAsync(Guid lobbyId, Guid userId, ChanceCard card);
+        /// <summary>A trade was proposed, accepted, declined or cancelled. Clients re-fetch GET /api/games/trades.</summary>
+        Task NotifyTradeUpdatedAsync(Guid lobbyId);
         Task NotifyGameFinishedAsync(Guid lobbyId, Guid? winnerUserId);
     }
 }

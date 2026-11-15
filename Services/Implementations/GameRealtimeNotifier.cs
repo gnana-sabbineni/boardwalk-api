@@ -27,6 +27,9 @@ namespace BoardWalk.Api.Services.Implementations
                 description = card.Description
             });
 
+        public Task NotifyTradeUpdatedAsync(Guid lobbyId) =>
+            _hubContext.Clients.Group(Group(lobbyId)).SendAsync("TradeUpdated");
+
         public Task NotifyGameFinishedAsync(Guid lobbyId, Guid? winnerUserId) =>
             _hubContext.Clients.Group(Group(lobbyId)).SendAsync("GameFinished", winnerUserId);
     }

@@ -13,6 +13,7 @@ namespace BoardWalk.Api.Data.Implementations
             return await ((IQueryable<Game>)_dbSet)
                 .Include(g => g.Players).ThenInclude(p => p.User)
                 .Include(g => g.Properties)
+                .Include(g => g.Trades.Where(t => t.Status == TradeStatus.Pending)).ThenInclude(t => t.Items)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(g => g.Id == gameId);
         }
@@ -30,6 +31,7 @@ namespace BoardWalk.Api.Data.Implementations
             return await ((IQueryable<Game>)_dbSet)
                 .Include(g => g.Players).ThenInclude(p => p.User)
                 .Include(g => g.Properties)
+                .Include(g => g.Trades.Where(t => t.Status == TradeStatus.Pending)).ThenInclude(t => t.Items)
                 .AsSplitQuery()
                 .Where(g => g.Status == GameStatus.InProgress && g.Players.Any(p => p.UserId == userId))
                 .FirstOrDefaultAsync();

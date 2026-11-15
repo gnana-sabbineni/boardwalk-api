@@ -15,6 +15,7 @@ namespace BoardWalk.Api.Data.Repositories
         IRepository<GamePlayer> GamePlayers { get; }
         IRepository<GameProperty> GameProperties { get; }
         IRepository<GameEvent> GameEvents { get; }
+        IRepository<Trade> Trades { get; }
         Task<int> SaveChangesAsync();
     }
 }

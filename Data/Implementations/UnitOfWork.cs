@@ -17,6 +17,7 @@ public class UnitOfWork : IUnitOfWork
     private IRepository<GamePlayer>? _gamePlayers;
     private IRepository<GameProperty>? _gameProperties;
     private IRepository<GameEvent>? _gameEvents;
+    private IRepository<Trade>? _trades;
 
     public UnitOfWork(AppDbContext context) => _context = context;
 
@@ -32,6 +33,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<GamePlayer> GamePlayers => _gamePlayers ??= new Repository<GamePlayer>(_context);
     public IRepository<GameProperty> GameProperties => _gameProperties ??= new Repository<GameProperty>(_context);
     public IRepository<GameEvent> GameEvents => _gameEvents ??= new Repository<GameEvent>(_context);
+
+    public IRepository<Trade> Trades => _trades ??= new Repository<Trade>(_context);
 
     public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
     public void Dispose() => _context.Dispose();

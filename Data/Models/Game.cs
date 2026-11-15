@@ -58,6 +58,7 @@ namespace BoardWalk.Api.Data.Models
         public List<GamePlayer> Players { get; set; } = new();
         public List<GameProperty> Properties { get; set; } = new();
         public List<GameEvent> Events { get; set; } = new();
+        public List<Trade> Trades { get; set; } = new();
     }
 
     public class GamePlayer

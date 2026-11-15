@@ -15,6 +15,8 @@ namespace BoardWalk.Api.Data
         public DbSet<GamePlayer> GamePlayers => Set<GamePlayer>();
         public DbSet<GameProperty> GameProperties => Set<GameProperty>();
         public DbSet<GameEvent> GameEvents => Set<GameEvent>();
+        public DbSet<Trade> Trades => Set<Trade>();
+        public DbSet<TradeItem> TradeItems => Set<TradeItem>();
         public DbSet<Lobby> Lobbies => Set<Lobby>();
         public DbSet<LobbyMember> LobbyMembers => Set<LobbyMember>();
         public DbSet<LobbyInvite> LobbyInvites => Set<LobbyInvite>();
@@ -165,6 +167,24 @@ namespace BoardWalk.Api.Data
 
                 entity.Property(e => e.Message).HasMaxLength(500);
                 entity.HasIndex(e => new { e.GameId, e.Sequence });
+            });
+
+            modelBuilder.Entity<Trade>(entity =>
+            {
+                entity.HasOne(t => t.Game)
+                      .WithMany(g => g.Trades)
+                      .HasForeignKey(t => t.GameId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(t => new { t.GameId, t.Status });
+            });
+
+            modelBuilder.Entity<TradeItem>(entity =>
+            {
+                entity.HasOne(i => i.Trade)
+                      .WithMany(t => t.Items)
+                      .HasForeignKey(i => i.TradeId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
 

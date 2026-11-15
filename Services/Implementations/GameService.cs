@@ -13,7 +13,7 @@ namespace BoardWalk.Api.Services.Implementations
     /// same game (a double-click, or two tabs) can never interleave. NOTE: the lock is in-process — if the
     /// API is ever scaled to several instances, swap it for a distributed lock (Redis is already available).
     /// </summary>
-    public class GameService : IGameService
+    public partial class GameService : IGameService
     {
         private const int RecentEventCount = 20;
 
@@ -286,6 +286,13 @@ namespace BoardWalk.Api.Services.Implementations
                 me.GetOutOfJailCards = 0;
                 me.IsBankrupt = true;
                 me.InJail = false;
+
+                foreach (var trade in game.Trades.Where(t => t.Status == TradeStatus.Pending &&
+                             (t.ProposerUserId == me.UserId || t.RecipientUserId == me.UserId)))
+                {
+                    trade.Status = TradeStatus.Cancelled;
+                    trade.RespondedAt = DateTime.UtcNow;
+                }
                 game.PendingDebtAmount = 0;
                 game.PendingDebtCreditorUserId = null;
                 game.PendingPurchaseTileIndex = null;
@@ -312,7 +319,8 @@ namespace BoardWalk.Api.Services.Implementations
         private async Task<GameStateResponse> RunTurnActionAsync(
             Guid userId,
             Action<Game, GamePlayer> action,
-            Func<Game, Task>? afterSave = null)
+            Func<Game, Task>? afterSave = null,
+            bool requireTurn = true)
         {
             var gameId = await _unitOfWork.Games.GetActiveGameIdForUserAsync(userId)
                 ?? throw new InvalidOperationException("You are not in a game.");
@@ -334,7 +342,7 @@ namespace BoardWalk.Api.Services.Implementations
                 if (me.IsBankrupt)
                     throw new InvalidOperationException("You are bankrupt and out of the game.");
 
-                if (game.CurrentTurnUserId != userId)
+                if (requireTurn && game.CurrentTurnUserId != userId)
                     throw new InvalidOperationException("It is not your turn.");
 
                 var cardBefore = game.LastChanceCardId;
@@ -775,8 +783,16 @@ namespace BoardWalk.Api.Services.Implementations
             var actions = new List<string>();
             var me = game.Players.FirstOrDefault(p => p.UserId == callerUserId);
 
-            if (game.Status != GameStatus.InProgress || me == null || me.IsBankrupt || game.CurrentTurnUserId != callerUserId)
+            if (game.Status != GameStatus.InProgress || me == null || me.IsBankrupt)
                 return actions;
+
+            // Trading is open to every active player at any time, not only on their own turn.
+            actions.Add("proposeTrade");
+
+            if (game.CurrentTurnUserId != callerUserId)
+                return actions;
+
+            actions.Add("manageProperties");
 
             if (game.PendingDebtAmount > 0)
             {
