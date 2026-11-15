@@ -1,3 +1,4 @@
+using BoardWalk.Api.Services.Auth;
 using BoardWalk.Monopoly.Abstractions;
 
 namespace BoardWalk.Api.Services.Implementations
