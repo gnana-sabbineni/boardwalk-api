@@ -57,3 +57,29 @@ Bankruptcy: last player left wins and the lobby closes.
 - "Collect from every player" takes only what each can pay.
 - No turn timer or auto-handling of a disconnected player yet.
 - Game locks are in-process (single API instance).
+
+---
+
+# UPDATE: activity log, snapshots, bots (branch feat/modular-monopoly-bots)
+
+The shapes above are superseded where they conflict with this section.
+
+## Activity log
+Events are positional int arrays: `[sequence, turn, type, ...args]`. Seats are `TurnOrder` numbers; `-1` means the bank.
+- `GET /api/games/events/schema` : the meaning of every type and its args (the contract; types are never renumbered).
+- `GET /api/games/{gameId}/events?afterSequence=0&limit=200` : `{ events: int[][], nextAfterSequence, hasMore }` (participants only).
+- `GameStateResponse.recentEvents` : newest first, same array format.
+
+## Summaries (per-turn snapshots)
+- `GET /api/games/{gameId}/summary` : one row per player per turn (turn 0 = start): cash, net worth, position, properties, houses, hotels, mortgaged, dice, controlledBy.
+
+## Turn clock
+`GameStateResponse.turnDeadlineAt` and `serverTime` (use the difference to count down). On timeout the server auto-plays; 2 missed turns hand the seat to a bot.
+
+## Lobbies and bots
+- `POST /api/lobbies/bots` : leader adds a computer player to the lobby.
+- Leaving a lobby that is in a game is allowed: a bot takes the seat (event `SeatTakenOverByBot`, SignalR `PlayerReplacedByBot`). No rejoin yet.
+
+## Bot service (not for browsers)
+- `GET /api/bot/turns` with header `X-Bot-Key` : bot seats that must act.
+- Game endpoints accept `X-Bot-Key` + `X-Act-As: <seat userId>`; only Bot-controlled seats are accepted.

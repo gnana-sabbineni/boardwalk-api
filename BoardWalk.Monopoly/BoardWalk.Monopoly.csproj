@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Monopoly-style game module: rules, state, event log, snapshots, turn timer.
+    It knows nothing about users, lobbies, HTTP or SignalR — the host (BoardWalk.Api) plugs those in
+    through the interfaces in Abstractions/. That is what lets other games live beside it later.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Gives us logging, dependency injection, options and BackgroundService without extra packages. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BoardWalk.Monopoly.Contracts\BoardWalk.Monopoly.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
