@@ -238,6 +238,9 @@ namespace BoardWalk.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<bool>("IsBot")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -265,6 +268,328 @@ namespace BoardWalk.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.Game", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChanceDeckOrder")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("ChanceDeckPosition")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CurrentTurnUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DiceSeed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DoublesCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventCounter")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HasRolled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("LastChanceCardId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastDie1")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastDie2")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PendingDebtAmount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PendingDebtCreditorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("PendingPurchaseTileIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RollCounter")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TurnDeadlineAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TurnNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("WinnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("Status", "TurnDeadlineAt");
+
+                    b.ToTable("Games", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.PrimitiveCollection<int[]>("Args")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Turn")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("GameEvents", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GamePlayer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Cash")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ControlledBy")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("GetOutOfJailCards")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("InJail")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsBankrupt")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("JailTurns")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("MissedTurns")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TurnOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("GameId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("GamePlayers", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameProperty", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Houses")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsMortgaged")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TileIndex")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "TileIndex")
+                        .IsUnique();
+
+                    b.ToTable("GameProperties", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Cash")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ControlledBy")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Die1")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Die2")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Hotels")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Houses")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("InJail")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsBankrupt")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Mortgaged")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("NetWorth")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Properties")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RollCounter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Seat")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Turn")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "Turn", "Seat")
+                        .IsUnique();
+
+                    b.ToTable("GameSnapshots", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.Trade", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("OfferCash")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProposerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RequestCash")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "Status");
+
+                    b.ToTable("Trades", (string)null);
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.TradeItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("FromProposer")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TileIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TradeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TradeId");
+
+                    b.ToTable("TradeItems", (string)null);
                 });
 
             modelBuilder.Entity("BoardWalk.Api.Data.Models.FriendRequest", b =>
@@ -383,9 +708,89 @@ namespace BoardWalk.Api.Migrations
                     b.Navigation("CurrentLobby");
                 });
 
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameEvent", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Game", "Game")
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GamePlayer", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Game", "Game")
+                        .WithMany("Players")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameProperty", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Game", "Game")
+                        .WithMany("Properties")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.GameSnapshot", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Game", "Game")
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.Trade", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Game", "Game")
+                        .WithMany("Trades")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.TradeItem", b =>
+                {
+                    b.HasOne("BoardWalk.Monopoly.Models.Trade", "Trade")
+                        .WithMany("Items")
+                        .HasForeignKey("TradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trade");
+                });
+
             modelBuilder.Entity("BoardWalk.Api.Data.Models.Lobby", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.Game", b =>
+                {
+                    b.Navigation("Players");
+
+                    b.Navigation("Properties");
+
+                    b.Navigation("Trades");
+                });
+
+            modelBuilder.Entity("BoardWalk.Monopoly.Models.Trade", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }
